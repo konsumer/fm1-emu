@@ -1,0 +1,36 @@
+# This fork: upstream's master with our commits on top (?package=URL, fm1-emu#158), rebased daily and
+# published on Pages. A commit upstream already has drops out of the rebase.
+
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rebase on upstream
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git remote add upstream https://github.com/joakimeriksson/fm1-emu.git
+          git fetch upstream master
+          before=$(git rev-parse HEAD)
+          git rebase upstream/master
+          if [ "$(git rev-parse HEAD)" != "$before" ]; then
+            git push --force-with-lease origin HEAD:master
+            # (a push with this token starts no workflow, so the deploy is started by hand)
+            gh workflow run pages.yml --ref master
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
